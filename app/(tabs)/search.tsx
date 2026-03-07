@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
   FlatList,
   Modal,
+  Pressable,
   StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -22,11 +22,12 @@ type FoodDetail = {
   id: string;
   name: string;
   brand: string | null;
-  calories: string;
-  sugar: string;
-  fat: string;
-  carbs: string;
-  protein: string;
+  serving_size?: string;
+  calories?: string;
+  sugar?: string;
+  fat?: string;
+  carbs?: string;
+  protein?: string;
 };
 
 export default function SearchScreen() {
@@ -48,7 +49,7 @@ export default function SearchScreen() {
     setSelectedFood(item);
     setModalVisible(true);
 
-    const res = await fetch(`${BASE_URL}/api/food/${item.id}`);
+    const res = await fetch(`${BASE_URL}/api/food-by-id/${item.id}`);
     const data = await res.json();
     setDetails(data);
   };
@@ -91,13 +92,16 @@ export default function SearchScreen() {
                 <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 5 }}>
                 {details?.name}
                 </Text>
-
                 {details?.brand && (
                 <Text style={{ fontSize: 14, color: '#666', marginBottom: 5 }}>
                     {details.brand}
                 </Text>
                 )}
-
+                {details?.serving_size && (
+                <Text style={{ fontSize: 13, color: '#666', marginBottom: 10 }}>
+                  Serving: {details.serving_size}
+                </Text>
+                )}
                 <Text style={{ fontSize: 12, color: '#999', marginBottom: 20 }}>
                 ID: {details?.id}
                 </Text>
@@ -124,7 +128,6 @@ export default function SearchScreen() {
             >
             <Text style={{ color: '#fff' }}>Close</Text>
             </Pressable>
-
         </View>
         </Modal>
     </View>
