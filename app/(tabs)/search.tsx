@@ -36,11 +36,40 @@ export default function SearchScreen() {
   const [selectedFood, setSelectedFood] = useState<SearchResult | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [details, setDetails] = useState<FoodDetail | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   const handleSearch = async () => {
-    if (!query) return;
+    let searchQuery = query;
 
-    const res = await fetch(`${BASE_URL}/api/search?query=${query}`);
+    if (!searchQuery && selectedCategory) {
+      const keywordMap: Record<string, string[]> = {
+        dairy: ["milk", "cheese", "yogurt"],
+        fruit: ["apple", "banana", "orange"],
+        meat: ["chicken", "beef", "pork"],
+        snacks: ["chips", "crackers, jerky, slices, nuts"],
+        beverages: ["juice", "soda", "coffee"],
+        vegetables: ["carrot", "broccoli"],
+        grains: ["rice", "pasta", "bread"],
+        sweets: ["cake", "cookie", "chocolate"],
+        seafood: ["fish", "shrimp", "salmon, cod, trout, tilapia, snapper, crab, tuna"],
+
+        dairy_free: ["dairy free"],
+        gluten_free: ["gluten free"],
+        grain_free: ["grain free"],
+        sugar_free: ["sugar free"],
+      };
+
+      searchQuery = keywordMap[selectedCategory]?.join(" ") || "";
+    }
+
+    if (!searchQuery) return;
+    let url = `${BASE_URL}/api/search?query=${searchQuery}`;
+    if (selectedCategory) {
+      url += `&category=${selectedCategory}`;
+    }
+
+    const res = await fetch(url);
     const data = await res.json();
     setResults(data);
   };
@@ -53,6 +82,25 @@ export default function SearchScreen() {
     const data = await res.json();
     setDetails(data);
   };
+  /// filters brah
+  const categories = [
+    "dairy",
+    "fruit",
+    "meat",
+    "snacks",
+    "beverages",
+    "vegetables",
+    "grains",
+    "sweets",
+    "seafood",
+  ];
+  
+  const dietaryFilters = [
+  "gluten_free",
+  "dairy_free",
+  "grain_free",
+  "sugar_free"
+  ];
 
   return (
     <View style={styles.container}>
@@ -66,22 +114,78 @@ export default function SearchScreen() {
         <Text style={{ color: '#fff' }}>Search</Text>
       </Pressable>
 
+      <Pressable onPress={() => setShowFilters(prev => !prev)} style={{ marginBottom: 10 }}>
+          <Text style={{ fontWeight: 'bold' }}>
+            Filters {showFilters ? "▲" : "▼"}
+          </Text>
+        </Pressable>
+        
+      {/* Filters */}
+      {showFilters && (
+        <>
+          <Text style={styles.filterHeader}>Categories</Text>
+          <View style={styles.filterContainer}>
+            {categories.map((cat) => (
+              <Pressable
+                key={cat}
+                onPress={() => {
+                  setSelectedCategory(prev => (prev === cat ? null : cat));
+                  handleSearch();
+                }}
+                style={[
+                  styles.filterButton,
+                  selectedCategory === cat && styles.filterButtonActive
+                ]}
+              >
+                <Text>{cat.replace("_", " ")}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.filterHeader}>Dietary Preferences</Text>
+
+          <View style={styles.filterContainer}>
+            {dietaryFilters.map((cat) => (
+              <Pressable
+                key={cat}
+                onPress={() => {
+                  setSelectedCategory(prev => (prev === cat ? null : cat));
+                  handleSearch();
+                }}
+                style={[
+                  styles.filterButton,
+                  selectedCategory === cat && styles.filterButtonActive
+                ]}
+              >
+                <Text>{cat.replace("_", " ")}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable onPress={() => setSelectedCategory(null)}>
+            <Text>Clear Filter</Text>
+          </Pressable>
+        </>
+      )}
+
       {/* DROPDOWN */}
-      <FlatList<SearchResult>
-        data={results}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+      <View style={{ flex: 1 }}>
+        <FlatList<SearchResult>
+          data={results}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          renderItem={({ item }) => (
             <Pressable
-            style={styles.resultItem}
-            onPress={() => handleSelect(item)}
+              style={styles.resultItem}
+              onPress={() => handleSelect(item)}
             >
-            <Text style={styles.resultName}>{item.name}</Text>
-            <Text style={styles.resultMeta}>
+              <Text style={styles.resultName}>{item.name}</Text>
+              <Text style={styles.resultMeta}>
                 {item.brand || 'No Brand'} | ID: {item.id}
-            </Text>
+              </Text>
             </Pressable>
-        )}
+          )}
         />
+      </View>
 
       {/*MODAL */}
       <Modal visible={modalVisible} animationType="slide">
@@ -181,5 +285,30 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  
+  filterHeader: {
+  marginBottom: 10,
+  fontWeight: 'bold',
+  },
+
+  filterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
+  },
+
+  filterButtonActive: {
+    borderColor: 'blue',
+    backgroundColor: '#e0f0ff',
   },
 });
