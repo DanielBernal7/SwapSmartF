@@ -38,7 +38,10 @@ type RecommendationResponse = {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9406184 (quick changes)
 function useSlideIn(delayMs: number = 0) {
 	const translateY = useSharedValue(22);
 	const style = useAnimatedStyle(() => ({
@@ -109,6 +112,10 @@ function ProductImage({ imageUrl, size }: { imageUrl: string | null; size: "larg
 }
 
 function ScannedCard({ product }: { product: Product }) {
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9406184 (quick changes)
 	const slideStyle = useSlideIn(0);
 
 	return (
