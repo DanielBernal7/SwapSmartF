@@ -4,13 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, {
-	FadeIn,
-	useAnimatedStyle,
-	useSharedValue,
-	withDelay,
-	withSpring,
-} from "react-native-reanimated";
+import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -38,10 +32,6 @@ type RecommendationResponse = {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 9406184 (quick changes)
 function useSlideIn(delayMs: number = 0) {
 	const translateY = useSharedValue(22);
 	const style = useAnimatedStyle(() => ({
@@ -112,19 +102,11 @@ function ProductImage({ imageUrl, size }: { imageUrl: string | null; size: "larg
 }
 
 function ScannedCard({ product }: { product: Product }) {
-<<<<<<< HEAD
-=======
-
->>>>>>> 9406184 (quick changes)
 	const slideStyle = useSlideIn(0);
 
 	return (
 		<Animated.View style={slideStyle}>
-			<GlassView
-				glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.45 }}
-				tintColor="rgba(255,255,255,0.08)"
-				style={s.scannedCard}
-			>
+			<GlassView glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.45 }} tintColor="rgba(255,255,255,0.08)" style={s.scannedCard}>
 				<View style={s.scannedHeader}>
 					<View style={s.scannedLabelRow}>
 						<View style={s.scannedDot} />
@@ -133,7 +115,8 @@ function ScannedCard({ product }: { product: Product }) {
 				</View>
 
 				<View style={s.scannedBody}>
-					<ProductImage imageUrl={product.image_url} size="large" />``
+					<ProductImage imageUrl={product.image_url} size="large" />
+					``
 					<View style={s.scannedInfo}>
 						<Text style={s.scannedName} numberOfLines={2}>
 							{product.name}
@@ -157,17 +140,7 @@ function ScannedCard({ product }: { product: Product }) {
 	);
 }
 
-function AlternativeCard({
-	product,
-	index,
-	scannedSugar,
-	onPress,
-}: {
-	product: Product;
-	index: number;
-	scannedSugar: number | null;
-	onPress: () => void;
-}) {
+function AlternativeCard({ product, index, scannedSugar, onPress }: { product: Product; index: number; scannedSugar: number | null; onPress: () => void }) {
 	const slideStyle = useSlideIn(80 + index * 60);
 
 	let sugarDiff: number | null = null;
@@ -183,12 +156,7 @@ function AlternativeCard({
 	return (
 		<Animated.View style={slideStyle}>
 			<GlassButton onPress={onPress}>
-				<GlassView
-					glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.3 }}
-					tintColor="rgba(255,255,255,0.06)"
-					isInteractive
-					style={s.altCard}
-				>
+				<GlassView glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.3 }} tintColor="rgba(255,255,255,0.06)" isInteractive style={s.altCard}>
 					<View style={s.altBody}>
 						<View style={s.rankBadge}>
 							<Text style={s.rankText}>{index + 1}</Text>
@@ -295,12 +263,7 @@ export default function RecommendationsScreen() {
 							{error}
 						</Animated.Text>
 						<GlassButton onPress={() => router.back()}>
-							<GlassView
-								glassEffectStyle="regular"
-								tintColor="rgba(255,255,255,0.1)"
-								isInteractive
-								style={s.errorBtn}
-							>
+							<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.1)" isInteractive style={s.errorBtn}>
 								<Text style={s.errorBtnText}>Go Back</Text>
 							</GlassView>
 						</GlassButton>
@@ -309,13 +272,7 @@ export default function RecommendationsScreen() {
 
 				{!loading && !error && data && (
 					<GlassContainer spacing={12} style={StyleSheet.absoluteFill}>
-						<ScrollView
-							contentContainerStyle={[s.scrollContent, { paddingTop: headerBarHeight + 24 }]}
-							showsVerticalScrollIndicator={false}
-							alwaysBounceVertical
-							scrollEventThrottle={16}
-							decelerationRate="normal"
-						>
+						<ScrollView contentContainerStyle={[s.scrollContent, { paddingTop: headerBarHeight + 24 }]} showsVerticalScrollIndicator={false} alwaysBounceVertical scrollEventThrottle={16} decelerationRate="normal">
 							<ScannedCard product={data.scanned} />
 
 							{data.recommendations.length > 0 && (
@@ -328,21 +285,11 @@ export default function RecommendationsScreen() {
 							)}
 
 							{data.recommendations.map((rec, index) => (
-								<AlternativeCard
-									key={index}
-									product={rec}
-									index={index}
-									scannedSugar={data.scanned.total_sugars}
-									onPress={() => handleAlternativePress(rec)}
-								/>
+								<AlternativeCard key={index} product={rec} index={index} scannedSugar={data.scanned.total_sugars} onPress={() => handleAlternativePress(rec)} />
 							))}
 
 							{data.recommendations.length === 0 && (
-								<GlassView
-									glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.4 }}
-									tintColor="rgba(255,255,255,0.06)"
-									style={s.emptyCard}
-								>
+								<GlassView glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.4 }} tintColor="rgba(255,255,255,0.06)" style={s.emptyCard}>
 									<Text style={s.emptyIcon}>🔍</Text>
 									<Text style={s.emptyTitle}>No alternatives found</Text>
 									<Text style={s.emptySubtitle}>{"We couldn't find products with less sugar in this category."}</Text>
@@ -355,25 +302,11 @@ export default function RecommendationsScreen() {
 				)}
 
 				<View style={[s.headerWrapper, { height: headerTotalHeight }]} pointerEvents="box-none" collapsable={false}>
-					<GlassView
-						glassEffectStyle="regular"
-						tintColor="rgba(255,255,255,0.08)"
-						style={[s.headerGlass, { height: headerBarHeight }]}
-					/>
-					<LinearGradient
-						colors={["rgba(238,243,250,0.12)", "rgba(238,243,250,0)"]}
-						locations={[0.6, 1]}
-						style={[s.headerFade, { top: headerBarHeight - 2 }]}
-						pointerEvents="none"
-					/>
+					<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.08)" style={[s.headerGlass, { height: headerBarHeight }]} />
+					<LinearGradient colors={["rgba(238,243,250,0.12)", "rgba(238,243,250,0)"]} locations={[0.6, 1]} style={[s.headerFade, { top: headerBarHeight - 2 }]} pointerEvents="none" />
 					<View style={[s.headerContent, { height: headerBarHeight, paddingTop: insets.top }]} pointerEvents="box-none">
 						<GlassButton onPress={() => router.back()}>
-							<GlassView
-								glassEffectStyle="clear"
-								tintColor="rgba(255,255,255,0.08)"
-								isInteractive
-								style={s.backBtn}
-							>
+							<GlassView glassEffectStyle="clear" tintColor="rgba(255,255,255,0.08)" isInteractive style={s.backBtn}>
 								<SymbolView name="chevron.left" style={s.backIcon} tintColor="#007AFF" resizeMode="scaleAspectFit" weight="semibold" />
 							</GlassView>
 						</GlassButton>
