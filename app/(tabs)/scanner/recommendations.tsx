@@ -1,13 +1,20 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState, useCallback } from "react";
-import { useFocusEffect } from "@react-navigation/native";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, Image, Platform } from "react-native";
-import { GlassView, GlassContainer } from "expo-glass-effect";
+import { GlassContainer, GlassView } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { SymbolView } from "expo-symbols";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, {
+	FadeIn,
+	useAnimatedStyle,
+	useSharedValue,
+	withDelay,
+	withSpring,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const NAV_BAR_HEIGHT = 44;
 
 type Product = {
 	name: string;
@@ -31,6 +38,18 @@ type RecommendationResponse = {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+
+function useSlideIn(delayMs: number = 0) {
+	const translateY = useSharedValue(22);
+	const style = useAnimatedStyle(() => ({
+		transform: [{ translateY: translateY.value }],
+	}));
+	useEffect(() => {
+		translateY.value = withDelay(delayMs, withSpring(0, { damping: 22, stiffness: 140, mass: 0.8 }));
+	}, []);
+	return style;
+}
+
 function GlassButton({ onPress, children, style }: { onPress: () => void; children: React.ReactNode; style?: object }) {
 	const scale = useSharedValue(1);
 	const pressed = useAnimatedStyle(() => ({
@@ -39,13 +58,10 @@ function GlassButton({ onPress, children, style }: { onPress: () => void; childr
 
 	const handlePressIn = () => {
 		scale.value = withSpring(0.96, { damping: 20, stiffness: 300, mass: 0.8 });
-		if (Platform.OS === "ios") {
-			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-		}
 	};
 
 	const handlePressOut = () => {
-		scale.value = withSpring(1, { damping: 14, stiffness: 200, mass: 0.6 });
+		scale.value = withSpring(1, { damping: 12, stiffness: 200, mass: 0.6 });
 	};
 
 	return (
@@ -71,10 +87,37 @@ function StatPill({ label, value, accent }: { label: string; value: string; acce
 	);
 }
 
-function ScannedCard({ product }: { product: Product }) {
+function ProductImage({ imageUrl, size }: { imageUrl: string | null; size: "large" | "small" }) {
+	let imageStyle = s.altImage;
+	if (size === "large") {
+		imageStyle = s.scannedImage;
+	}
+	let placeholderInnerStyle = s.altPlaceholderImg;
+	if (size === "large") {
+		placeholderInnerStyle = s.scannedPlaceholderImg;
+	}
+
+	if (imageUrl) {
+		return <Image source={{ uri: imageUrl }} style={imageStyle} />;
+	}
+
 	return (
-		<Animated.View entering={FadeInDown.duration(500).springify().damping(22).stiffness(140)}>
-			<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.35)" style={s.scannedCard}>
+		<View style={[imageStyle, s.imagePlaceholder]}>
+			<Image source={require("../../../img/image_placeholder.png")} style={placeholderInnerStyle} resizeMode="contain" />
+		</View>
+	);
+}
+
+function ScannedCard({ product }: { product: Product }) {
+	const slideStyle = useSlideIn(0);
+
+	return (
+		<Animated.View style={slideStyle}>
+			<GlassView
+				glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.45 }}
+				tintColor="rgba(255,255,255,0.08)"
+				style={s.scannedCard}
+			>
 				<View style={s.scannedHeader}>
 					<View style={s.scannedLabelRow}>
 						<View style={s.scannedDot} />
@@ -83,12 +126,7 @@ function ScannedCard({ product }: { product: Product }) {
 				</View>
 
 				<View style={s.scannedBody}>
-					{product.image_url && <Image source={{ uri: product.image_url }} style={s.scannedImage} />}
-					{!product.image_url && (
-						<View style={[s.scannedImage, s.imagePlaceholder]}>
-							<Image source={require("../../../img/image_placeholder.png")} style={s.altImage} />
-						</View>
-					)}
+					<ProductImage imageUrl={product.image_url} size="large" />``
 					<View style={s.scannedInfo}>
 						<Text style={s.scannedName} numberOfLines={2}>
 							{product.name}
@@ -112,7 +150,19 @@ function ScannedCard({ product }: { product: Product }) {
 	);
 }
 
-function AlternativeCard({ product, index, scannedSugar, onPress }: { product: Product; index: number; scannedSugar: number | null; onPress: () => void }) {
+function AlternativeCard({
+	product,
+	index,
+	scannedSugar,
+	onPress,
+}: {
+	product: Product;
+	index: number;
+	scannedSugar: number | null;
+	onPress: () => void;
+}) {
+	const slideStyle = useSlideIn(80 + index * 60);
+
 	let sugarDiff: number | null = null;
 	if (scannedSugar != null && product.total_sugars != null) {
 		sugarDiff = scannedSugar - product.total_sugars;
@@ -124,26 +174,20 @@ function AlternativeCard({ product, index, scannedSugar, onPress }: { product: P
 	}
 
 	return (
-		<Animated.View
-			entering={FadeInDown.delay(100 + index * 70)
-				.duration(450)
-				.springify()
-				.damping(22)
-				.stiffness(140)}
-		>
+		<Animated.View style={slideStyle}>
 			<GlassButton onPress={onPress}>
-				<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.3)" isInteractive style={s.altCard}>
+				<GlassView
+					glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.3 }}
+					tintColor="rgba(255,255,255,0.06)"
+					isInteractive
+					style={s.altCard}
+				>
 					<View style={s.altBody}>
 						<View style={s.rankBadge}>
 							<Text style={s.rankText}>{index + 1}</Text>
 						</View>
 
-						{product.image_url && <Image source={{ uri: product.image_url }} style={s.altImage} />}
-						{!product.image_url && (
-							<View style={[s.altImage, s.imagePlaceholder]}>
-								<Image source={require("../../../img/image_placeholder.png")} style={s.altImage} resizeMode="contain" />
-							</View>
-						)}
+						<ProductImage imageUrl={product.image_url} size="small" />
 
 						<View style={s.altInfo}>
 							<Text style={s.altName} numberOfLines={2}>
@@ -165,7 +209,7 @@ function AlternativeCard({ product, index, scannedSugar, onPress }: { product: P
 							</View>
 						</View>
 
-						<Text style={s.chevron}>›</Text>
+						<SymbolView name="chevron.right" style={s.chevron} tintColor="#C7C7CC" resizeMode="scaleAspectFit" weight="light" />
 					</View>
 				</GlassView>
 			</GlassButton>
@@ -176,16 +220,13 @@ function AlternativeCard({ product, index, scannedSugar, onPress }: { product: P
 export default function RecommendationsScreen() {
 	const { gtin } = useLocalSearchParams<{ gtin: string }>();
 	const router = useRouter();
+	const insets = useSafeAreaInsets();
 	const [data, setData] = useState<RecommendationResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	const [glassKey, setGlassKey] = useState(0);
-	useFocusEffect(
-		useCallback(() => {
-			setGlassKey((k) => k + 1);
-		}, []),
-	);
+	const headerBarHeight = insets.top + NAV_BAR_HEIGHT;
+	const headerTotalHeight = headerBarHeight + 46;
 
 	useEffect(() => {
 		if (!gtin) {
@@ -214,17 +255,22 @@ export default function RecommendationsScreen() {
 			.finally(() => setLoading(false));
 	}, [gtin]);
 
-	const handleAlternativePress = (_product: Product) => {
-		if (Platform.OS === "ios") {
-			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-		}
-	};
+	const handleAlternativePress = (_product: Product) => {};
+
+	let recCount = 0;
+	if (data) {
+		recCount = data.recommendations.length;
+	}
+	let recCountSuffix = "";
+	if (recCount !== 1) {
+		recCountSuffix = "s";
+	}
 
 	return (
-		<View style={s.container}>
-			<LinearGradient colors={["#F2F2F7", "#E8ECF0", "#F2F2F7"]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+		<View style={s.container} collapsable={false}>
+			<LinearGradient colors={["#EEF3FA", "#F0F4F8", "#F2F2F7"]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
 
-			<View key={glassKey} style={StyleSheet.absoluteFill}>
+			<View style={StyleSheet.absoluteFill} collapsable={false}>
 				{loading && (
 					<View style={s.centerState}>
 						<Animated.View entering={FadeIn.duration(300)}>
@@ -242,7 +288,12 @@ export default function RecommendationsScreen() {
 							{error}
 						</Animated.Text>
 						<GlassButton onPress={() => router.back()}>
-							<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.4)" isInteractive style={s.errorBtn}>
+							<GlassView
+								glassEffectStyle="regular"
+								tintColor="rgba(255,255,255,0.1)"
+								isInteractive
+								style={s.errorBtn}
+							>
 								<Text style={s.errorBtnText}>Go Back</Text>
 							</GlassView>
 						</GlassButton>
@@ -251,44 +302,72 @@ export default function RecommendationsScreen() {
 
 				{!loading && !error && data && (
 					<GlassContainer spacing={12} style={StyleSheet.absoluteFill}>
-						<ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+						<ScrollView
+							contentContainerStyle={[s.scrollContent, { paddingTop: headerBarHeight + 24 }]}
+							showsVerticalScrollIndicator={false}
+							alwaysBounceVertical
+							scrollEventThrottle={16}
+							decelerationRate="normal"
+						>
 							<ScannedCard product={data.scanned} />
 
 							{data.recommendations.length > 0 && (
-								<Animated.View entering={FadeInDown.delay(80).duration(400).springify().damping(22)}>
-									<Text style={s.sectionTitle}>Better Alternatives</Text>
+								<View style={s.sectionHeader}>
+									<Text style={s.sectionTitle}>Lower Sugar Alternatives</Text>
 									<Text style={s.sectionSubtitle}>
-										{data.recommendations.length} option{data.recommendations.length !== 1 && "s"} with less sugar
+										{recCount} option{recCountSuffix} with less sugar
 									</Text>
-								</Animated.View>
+								</View>
 							)}
 
 							{data.recommendations.map((rec, index) => (
-								<AlternativeCard key={index} product={rec} index={index} scannedSugar={data.scanned.total_sugars} onPress={() => handleAlternativePress(rec)} />
+								<AlternativeCard
+									key={index}
+									product={rec}
+									index={index}
+									scannedSugar={data.scanned.total_sugars}
+									onPress={() => handleAlternativePress(rec)}
+								/>
 							))}
 
 							{data.recommendations.length === 0 && (
-								<Animated.View entering={FadeInDown.delay(120).springify()}>
-									<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.3)" style={s.emptyCard}>
-										<Text style={s.emptyIcon}>🔍</Text>
-										<Text style={s.emptyTitle}>No alternatives found</Text>
-										<Text style={s.emptySubtitle}>{"We couldn't find products with less sugar in this category."}</Text>
-									</GlassView>
-								</Animated.View>
+								<GlassView
+									glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.4 }}
+									tintColor="rgba(255,255,255,0.06)"
+									style={s.emptyCard}
+								>
+									<Text style={s.emptyIcon}>🔍</Text>
+									<Text style={s.emptyTitle}>No alternatives found</Text>
+									<Text style={s.emptySubtitle}>{"We couldn't find products with less sugar in this category."}</Text>
+								</GlassView>
 							)}
 
-							<View style={s.scrollBottomSpacer} />
+							<View style={{ height: insets.bottom + 65 }} />
 						</ScrollView>
 					</GlassContainer>
 				)}
 
-				<View style={s.headerWrapper} pointerEvents="box-none">
-					<GlassView glassEffectStyle="clear" tintColor="rgba(255,255,255,0.5)" style={s.headerGlass} />
-					<LinearGradient colors={["rgba(242,242,247,0.2)", "rgba(242,242,247,0)"]} locations={[0.6, 1]} style={s.headerFade} pointerEvents="none" />
-					<View style={s.headerContent} pointerEvents="box-none">
+				<View style={[s.headerWrapper, { height: headerTotalHeight }]} pointerEvents="box-none" collapsable={false}>
+					<GlassView
+						glassEffectStyle="regular"
+						tintColor="rgba(255,255,255,0.08)"
+						style={[s.headerGlass, { height: headerBarHeight }]}
+					/>
+					<LinearGradient
+						colors={["rgba(238,243,250,0.12)", "rgba(238,243,250,0)"]}
+						locations={[0.6, 1]}
+						style={[s.headerFade, { top: headerBarHeight - 2 }]}
+						pointerEvents="none"
+					/>
+					<View style={[s.headerContent, { height: headerBarHeight, paddingTop: insets.top }]} pointerEvents="box-none">
 						<GlassButton onPress={() => router.back()}>
-							<GlassView glassEffectStyle="clear" tintColor="rgba(255,255,255,0.45)" isInteractive style={s.backBtn}>
-								<Text style={s.backIcon}>‹</Text>
+							<GlassView
+								glassEffectStyle="clear"
+								tintColor="rgba(255,255,255,0.08)"
+								isInteractive
+								style={s.backBtn}
+							>
+								<SymbolView name="chevron.left" style={s.backIcon} tintColor="#007AFF" resizeMode="scaleAspectFit" weight="semibold" />
 							</GlassView>
 						</GlassButton>
 						<Text style={s.headerTitle}>Recommendations</Text>
@@ -303,7 +382,7 @@ export default function RecommendationsScreen() {
 const s = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: "#F2F2F7",
+		backgroundColor: "#EEF3FA",
 	},
 
 	headerWrapper: {
@@ -311,7 +390,6 @@ const s = StyleSheet.create({
 		top: 0,
 		left: 0,
 		right: 0,
-		height: 150,
 		zIndex: 10,
 	},
 	headerGlass: {
@@ -319,24 +397,21 @@ const s = StyleSheet.create({
 		top: 0,
 		left: 0,
 		right: 0,
-		height: 106,
 		borderBottomWidth: StyleSheet.hairlineWidth,
-		borderBottomColor: "rgba(60,60,67,0.08)",
+		borderBottomColor: "rgba(60,60,67,0.1)",
 		overflow: "hidden",
 	},
 	headerFade: {
 		position: "absolute",
-		top: 104,
 		left: 0,
 		right: 0,
-		height: 46,
+		height: 48,
 	},
 	headerContent: {
 		position: "absolute",
 		top: 0,
 		left: 0,
 		right: 0,
-		height: 106,
 		flexDirection: "row",
 		alignItems: "flex-end",
 		justifyContent: "space-between",
@@ -348,7 +423,6 @@ const s = StyleSheet.create({
 		fontWeight: "600",
 		color: "#000",
 		letterSpacing: -0.4,
-		fontFamily: Platform.select({ ios: "system-ui", default: undefined }),
 	},
 	backBtn: {
 		width: 40,
@@ -357,24 +431,29 @@ const s = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		overflow: "hidden",
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(255,255,255,0.4)",
 	},
 	backIcon: {
-		fontSize: 26,
-		color: "#007AFF",
-		lineHeight: 32,
-		fontWeight: "300",
-		marginTop: -1,
+		width: 16,
+		height: 16,
 	},
 
 	scrollContent: {
-		padding: 16,
-		paddingTop: 120,
+		paddingHorizontal: 16,
+		paddingBottom: 0,
 	},
 
 	scannedCard: {
 		borderRadius: 22,
 		marginBottom: 20,
 		overflow: "hidden",
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(255,255,255,0.55)",
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.07,
+		shadowRadius: 10,
 	},
 	scannedHeader: {
 		paddingHorizontal: 18,
@@ -410,6 +489,10 @@ const s = StyleSheet.create({
 		height: 68,
 		borderRadius: 16,
 		backgroundColor: "#E5E5EA",
+	},
+	scannedPlaceholderImg: {
+		width: 44,
+		height: 44,
 	},
 	scannedInfo: {
 		flex: 1,
@@ -452,7 +535,6 @@ const s = StyleSheet.create({
 		fontWeight: "700",
 		color: "#1C1C1E",
 		letterSpacing: -0.3,
-		fontFamily: Platform.select({ ios: "ui-rounded", default: undefined }),
 	},
 	statPillValueAccent: {
 		color: "#FF3B30",
@@ -468,6 +550,10 @@ const s = StyleSheet.create({
 		color: "#FF3B30",
 	},
 
+	sectionHeader: {
+		marginBottom: 14,
+		paddingHorizontal: 2,
+	},
 	sectionTitle: {
 		fontSize: 22,
 		fontWeight: "700",
@@ -475,20 +561,23 @@ const s = StyleSheet.create({
 		letterSpacing: -0.5,
 		marginTop: 4,
 		marginBottom: 2,
-		paddingHorizontal: 2,
 	},
 	sectionSubtitle: {
 		fontSize: 14,
 		color: "#8E8E93",
 		letterSpacing: -0.1,
-		marginBottom: 14,
-		paddingHorizontal: 2,
 	},
 
 	altCard: {
 		borderRadius: 18,
 		marginBottom: 10,
 		overflow: "hidden",
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(255,255,255,0.5)",
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 6,
 	},
 	altBody: {
 		flexDirection: "row",
@@ -509,13 +598,16 @@ const s = StyleSheet.create({
 		fontSize: 13,
 		fontWeight: "700",
 		color: "#007AFF",
-		fontFamily: Platform.select({ ios: "ui-rounded", default: undefined }),
 	},
 	altImage: {
 		width: 52,
 		height: 52,
 		borderRadius: 14,
 		backgroundColor: "#E5E5EA",
+	},
+	altPlaceholderImg: {
+		width: 36,
+		height: 36,
 	},
 	altInfo: {
 		flex: 1,
@@ -557,9 +649,8 @@ const s = StyleSheet.create({
 		letterSpacing: -0.1,
 	},
 	chevron: {
-		fontSize: 22,
-		color: "#C7C7CC",
-		fontWeight: "300",
+		width: 14,
+		height: 14,
 		marginLeft: 4,
 	},
 
@@ -568,12 +659,6 @@ const s = StyleSheet.create({
 		justifyContent: "center",
 		backgroundColor: "rgba(120,120,128,0.08)",
 	},
-	placeholderIcon: {
-		fontSize: 28,
-	},
-	placeholderIconSmall: {
-		fontSize: 22,
-	},
 
 	emptyCard: {
 		borderRadius: 22,
@@ -581,6 +666,8 @@ const s = StyleSheet.create({
 		paddingVertical: 36,
 		paddingHorizontal: 24,
 		overflow: "hidden",
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(255,255,255,0.5)",
 	},
 	emptyIcon: {
 		fontSize: 36,
@@ -623,15 +710,14 @@ const s = StyleSheet.create({
 		overflow: "hidden",
 		paddingHorizontal: 28,
 		paddingVertical: 14,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(255,255,255,0.4)",
 	},
 	errorBtnText: {
 		fontSize: 16,
 		color: "#007AFF",
 		fontWeight: "600",
 		letterSpacing: -0.2,
-	},
-	scrollBottomSpacer: {
-		height: 40,
 	},
 	headerSpacer: {
 		width: 40,
