@@ -1,4 +1,4 @@
-import { GlassContainer, GlassView } from "expo-glass-effect";
+import { GlassCard } from "@/components/GlassCard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -11,6 +11,7 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const NAV_BAR_HEIGHT = 44;
 
 type Product = {
+	food_id: string | null;
 	name: string;
 	brand: string | null;
 	category: string | null;
@@ -39,7 +40,7 @@ function useSlideIn(delayMs: number = 0) {
 	}));
 	useEffect(() => {
 		translateY.value = withDelay(delayMs, withSpring(0, { damping: 22, stiffness: 140, mass: 0.8 }));
-	}, []);
+	}, [delayMs, translateY]);
 	return style;
 }
 
@@ -106,7 +107,7 @@ function ScannedCard({ product }: { product: Product }) {
 
 	return (
 		<Animated.View style={slideStyle}>
-			<GlassView glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.45 }} tintColor="rgba(255,255,255,0.08)" style={s.scannedCard}>
+			<GlassCard style={s.scannedCard}>
 				<View style={s.scannedHeader}>
 					<View style={s.scannedLabelRow}>
 						<View style={s.scannedDot} />
@@ -116,7 +117,6 @@ function ScannedCard({ product }: { product: Product }) {
 
 				<View style={s.scannedBody}>
 					<ProductImage imageUrl={product.image_url} size="large" />
-					``
 					<View style={s.scannedInfo}>
 						<Text style={s.scannedName} numberOfLines={2}>
 							{product.name}
@@ -135,7 +135,7 @@ function ScannedCard({ product }: { product: Product }) {
 					<StatPill label="Fat" value={formatNutrient(product.total_fat, "g")} />
 					<StatPill label="Protein" value={formatNutrient(product.protein, "g")} />
 				</View>
-			</GlassView>
+			</GlassCard>
 		</Animated.View>
 	);
 }
@@ -156,7 +156,7 @@ function AlternativeCard({ product, index, scannedSugar, onPress }: { product: P
 	return (
 		<Animated.View style={slideStyle}>
 			<GlassButton onPress={onPress}>
-				<GlassView glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.3 }} tintColor="rgba(255,255,255,0.06)" isInteractive style={s.altCard}>
+				<GlassCard style={s.altCard}>
 					<View style={s.altBody}>
 						<View style={s.rankBadge}>
 							<Text style={s.rankText}>{index + 1}</Text>
@@ -186,7 +186,7 @@ function AlternativeCard({ product, index, scannedSugar, onPress }: { product: P
 
 						<SymbolView name="chevron.right" style={s.chevron} tintColor="#C7C7CC" resizeMode="scaleAspectFit" weight="light" />
 					</View>
-				</GlassView>
+				</GlassCard>
 			</GlassButton>
 		</Animated.View>
 	);
@@ -230,7 +230,21 @@ export default function RecommendationsScreen() {
 			.finally(() => setLoading(false));
 	}, [gtin]);
 
-	const handleAlternativePress = (_product: Product) => {};
+	const handleAlternativePress = (product: Product) => {
+		const foodId = product.food_id ?? (product as any).id;
+		console.log("product tapped:", JSON.stringify(product));
+		if (!foodId) {
+			console.warn("No food_id on product — backend needs updating");
+			return;
+		}
+		router.push({
+			pathname: "/product/[foodId]",
+			params: {
+				foodId,
+				scannedJson: JSON.stringify(data?.scanned),
+			},
+		});
+	};
 
 	let recCount = 0;
 	if (data) {
@@ -263,15 +277,15 @@ export default function RecommendationsScreen() {
 							{error}
 						</Animated.Text>
 						<GlassButton onPress={() => router.back()}>
-							<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.1)" isInteractive style={s.errorBtn}>
+							<GlassCard style={s.errorBtn}>
 								<Text style={s.errorBtnText}>Go Back</Text>
-							</GlassView>
+							</GlassCard>
 						</GlassButton>
 					</View>
 				)}
 
 				{!loading && !error && data && (
-					<GlassContainer spacing={12} style={StyleSheet.absoluteFill}>
+					<View style={StyleSheet.absoluteFill}>
 						<ScrollView contentContainerStyle={[s.scrollContent, { paddingTop: headerBarHeight + 24 }]} showsVerticalScrollIndicator={false} alwaysBounceVertical scrollEventThrottle={16} decelerationRate="normal">
 							<ScannedCard product={data.scanned} />
 
@@ -289,26 +303,26 @@ export default function RecommendationsScreen() {
 							))}
 
 							{data.recommendations.length === 0 && (
-								<GlassView glassEffectStyle={{ style: "regular", animate: true, animationDuration: 0.4 }} tintColor="rgba(255,255,255,0.06)" style={s.emptyCard}>
+								<GlassCard style={s.emptyCard}>
 									<Text style={s.emptyIcon}>🔍</Text>
 									<Text style={s.emptyTitle}>No alternatives found</Text>
 									<Text style={s.emptySubtitle}>{"We couldn't find products with less sugar in this category."}</Text>
-								</GlassView>
+								</GlassCard>
 							)}
 
 							<View style={{ height: insets.bottom + 65 }} />
 						</ScrollView>
-					</GlassContainer>
+					</View>
 				)}
 
 				<View style={[s.headerWrapper, { height: headerTotalHeight }]} pointerEvents="box-none" collapsable={false}>
-					<GlassView glassEffectStyle="regular" tintColor="rgba(255,255,255,0.08)" style={[s.headerGlass, { height: headerBarHeight }]} />
+					<GlassCard style={[s.headerGlass, { height: headerBarHeight }]} />
 					<LinearGradient colors={["rgba(238,243,250,0.12)", "rgba(238,243,250,0)"]} locations={[0.6, 1]} style={[s.headerFade, { top: headerBarHeight - 2 }]} pointerEvents="none" />
 					<View style={[s.headerContent, { height: headerBarHeight, paddingTop: insets.top }]} pointerEvents="box-none">
 						<GlassButton onPress={() => router.back()}>
-							<GlassView glassEffectStyle="clear" tintColor="rgba(255,255,255,0.08)" isInteractive style={s.backBtn}>
+							<GlassCard style={s.backBtn}>
 								<SymbolView name="chevron.left" style={s.backIcon} tintColor="#007AFF" resizeMode="scaleAspectFit" weight="semibold" />
-							</GlassView>
+							</GlassCard>
 						</GlassButton>
 						<Text style={s.headerTitle}>Recommendations</Text>
 						<View style={s.headerSpacer} />
