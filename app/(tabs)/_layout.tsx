@@ -10,6 +10,11 @@ export default function TabLayout() {
 				<Icon sf="house.fill" />
 			</NativeTabs.Trigger>
 
+			<NativeTabs.Trigger name="search">
+				<Label>Search</Label>
+				<Icon sf="magnifyingglass" />
+			</NativeTabs.Trigger>
+
 			<NativeTabs.Trigger name="explore">
 				<Label>Explore</Label>
 				<Icon sf="paperplane.fill" />
