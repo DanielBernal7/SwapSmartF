@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassCard } from "@/components/GlassCard";
 
@@ -133,6 +133,67 @@ type ScannedProduct = {
 };
 
 const NAV_BAR_HEIGHT = 44;
+function SugarViz({ scannedSugars, altSugars }: { scannedSugars: number; altSugars: number }) {
+	const saved = scannedSugars - altSugars;
+	const savedPercent = Math.round((saved / scannedSugars) * 100);
+	const altFraction = altSugars / scannedSugars;
+
+	const fillGrow = useSharedValue(0);
+	const spacerGrow = useSharedValue(1);
+
+	useEffect(() => {
+		const springConfig = { damping: 22, stiffness: 55, mass: 1.4 };
+		fillGrow.value = withDelay(200, withSpring(altFraction, springConfig));
+		spacerGrow.value = withDelay(200, withSpring(1 - altFraction, springConfig));
+	}, [altFraction, fillGrow, spacerGrow]);
+
+	const fillStyle = useAnimatedStyle(() => ({ flexGrow: fillGrow.value }));
+	const spacerStyle = useAnimatedStyle(() => ({ flexGrow: spacerGrow.value }));
+
+	return (
+		<Animated.View entering={FadeIn.delay(100).duration(400)}>
+			<GlassCard style={styles.card}>
+				<View style={styles.cardInner}>
+					<View style={sugarVizStyles.header}>
+						<Text style={sectionStyles.sectionTitle}>Sugar per Serving</Text>
+						<View style={sugarVizStyles.badge}>
+							<Text style={sugarVizStyles.badgeText}>−{savedPercent}%</Text>
+						</View>
+					</View>
+
+					<Text style={sugarVizStyles.rowLabel}>Scanned</Text>
+					<View style={sugarVizStyles.row}>
+						<Text style={sugarVizStyles.numMuted}>{Math.round(scannedSugars)}g</Text>
+						<View style={sugarVizStyles.trackNeutral}>
+							<LinearGradient colors={["rgba(142,142,147,0.32)", "rgba(142,142,147,0.50)"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+						</View>
+					</View>
+
+					<View style={sugarVizStyles.gap} />
+
+					<View style={sugarVizStyles.swapLabelLine}>
+						<SymbolView name="checkmark.circle.fill" style={sugarVizStyles.checkIcon} tintColor="#5856D6" />
+						<Text style={sugarVizStyles.rowLabelIndigo}>This Swap</Text>
+					</View>
+					<View style={sugarVizStyles.row}>
+						<Text style={sugarVizStyles.numIndigo}>{Math.round(altSugars)}g</Text>
+						<View style={sugarVizStyles.trackIndigo}>
+							<Animated.View style={[sugarVizStyles.fill, fillStyle]}>
+								<LinearGradient colors={["#5856D6", "#7B79E8"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
+							</Animated.View>
+							<Animated.View style={spacerStyle} />
+						</View>
+					</View>
+
+					<View style={sugarVizStyles.footer}>
+						<Text style={sugarVizStyles.footerNum}>−{Math.round(saved)}g</Text>
+						<Text style={sugarVizStyles.footerSub}> less sugar per serving</Text>
+					</View>
+				</View>
+			</GlassCard>
+		</Animated.View>
+	);
+}
 
 function fmt(value: number | null | undefined, unit: string = ""): string {
 	if (value != null) return `${value}${unit}`;
@@ -352,7 +413,10 @@ export default function ProductDetailScreen() {
 			.finally(() => setLoading(false));
 	}, [foodId]);
 
-	const currentServing = detail?.all_servings?.[selectedServingIndex] ?? null;
+	let currentServing: Serving | null = null;
+	if (detail && detail.all_servings) {
+		currentServing = detail.all_servings[selectedServingIndex];
+	}
 
 	return (
 		<View style={styles.container}>
@@ -405,6 +469,16 @@ export default function ProductDetailScreen() {
 							</View>
 						</GlassCard>
 					)}
+
+					{(() => {
+						if (!scanned || scanned.total_sugars == null) return null;
+						let altSugars = detail.total_sugars;
+						if (currentServing && currentServing.total_sugars != null) {
+							altSugars = currentServing.total_sugars;
+						}
+						if (altSugars == null || altSugars >= scanned.total_sugars) return null;
+						return <SugarViz scannedSugars={scanned.total_sugars} altSugars={altSugars} />;
+					})()}
 
 					{scanned && (
 						<GlassCard style={styles.card}>
@@ -695,5 +769,120 @@ const availabilityStyles = StyleSheet.create({
 		fontWeight: "600",
 		color: "#007AFF",
 		letterSpacing: -0.2,
+	},
+});
+
+const sugarVizStyles = StyleSheet.create({
+	header: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginBottom: 13,
+	},
+	badge: {
+		backgroundColor: "rgba(88,86,214,0.10)",
+		borderRadius: 20,
+		paddingHorizontal: 10,
+		paddingVertical: 4,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(88,86,214,0.25)",
+	},
+	badgeText: {
+		fontSize: 13,
+		fontWeight: "700",
+		color: "#5856D6",
+		letterSpacing: -0.3,
+	},
+	rowLabel: {
+		fontSize: 13,
+		fontWeight: "500",
+		color: "#8E8E93",
+		letterSpacing: -0.1,
+		marginBottom: 5,
+		marginLeft: 48,
+	},
+	swapLabelLine: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 3,
+		marginBottom: 5,
+	},
+	checkIcon: {
+		width: 14,
+		height: 14,
+		marginLeft: 45,
+	},
+	rowLabelIndigo: {
+		fontSize: 13,
+		fontWeight: "600",
+		color: "#5856D6",
+		letterSpacing: -0.1,
+	},
+	row: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	gap: {
+		height: 16,
+	},
+	numMuted: {
+		width: 40,
+		textAlign: "left",
+		bottom: 5,
+		fontSize: 29,
+		fontWeight: "600",
+		color: "#8E8E93",
+		letterSpacing: -0.1,
+	},
+	numIndigo: {
+		width: 40,
+		textAlign: "left",
+		bottom: 5,
+		fontSize: 29,
+		fontWeight: "700",
+		color: "#5856D6",
+		letterSpacing: -0.1,
+	},
+	trackNeutral: {
+		flex: 1,
+		height: 12,
+		borderRadius: 7,
+		overflow: "hidden",
+		backgroundColor: "rgba(142,142,147,0.10)",
+	},
+	trackIndigo: {
+		flex: 1,
+		height: 12,
+		borderRadius: 7,
+		overflow: "hidden",
+		backgroundColor: "rgba(88,86,214,0.10)",
+		flexDirection: "row",
+	},
+	fill: {
+		borderRadius: 7,
+		overflow: "hidden",
+	},
+	footer: {
+		flexDirection: "row",
+		alignItems: "baseline",
+		justifyContent: "center",
+		marginTop: 16,
+		paddingTop: 14,
+		borderTopWidth: StyleSheet.hairlineWidth,
+		borderTopColor: "rgba(60,60,67,0.08)",
+	},
+	footerNum: {
+		fontSize: 15,
+		fontWeight: "700",
+		color: "#5856D6",
+		letterSpacing: 0.08,
+		marginRight: 1.2,
+	},
+	footerSub: {
+		fontSize: 13,
+		fontWeight: "400",
+		color: "#8E8E93",
+		letterSpacing: -0.1,
 	},
 });
