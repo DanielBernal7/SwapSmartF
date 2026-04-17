@@ -12,10 +12,10 @@ import {
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type SearchResult = {
-  id: string;
-  name: string;
-  brand: string | null;
-  description: string;
+	id: string;
+	name: string;
+	brand: string | null;
+	description: string;
 };
 
 type FoodDetail = {
@@ -47,12 +47,12 @@ export default function SearchScreen() {
         dairy: ["milk", "cheese", "yogurt"],
         fruit: ["apple", "banana", "orange"],
         meat: ["chicken", "beef", "pork"],
-        snacks: ["chips", "crackers, jerky, slices, nuts"],
+        snacks: ["chips", "crackers", "jerky", "slices", "nuts"],
         beverages: ["juice", "soda", "coffee"],
         vegetables: ["carrot", "broccoli"],
         grains: ["rice", "pasta", "bread"],
         sweets: ["cake", "cookie", "chocolate"],
-        seafood: ["fish", "shrimp", "salmon, cod, trout, tilapia, snapper, crab, tuna"],
+        seafood: ["fish", "shrimp", "salmon", "cod", "trout", "tilapia", "snapper", "crab", "tuna"],
 
         dairy_free: ["dairy free"],
         gluten_free: ["gluten free"],
@@ -65,18 +65,18 @@ export default function SearchScreen() {
 
     if (!searchQuery) return;
     let url = `${BASE_URL}/api/search?query=${searchQuery}`;
-    if (selectedCategory) {
-      url += `&category=${selectedCategory}`;
-    }
+    //if (selectedCategory) {
+      //url += `&category=${selectedCategory}`;
+    //}
 
     const res = await fetch(url);
     const data = await res.json();
     setResults(data);
   };
 
-  const handleSelect = async (item: SearchResult) => {
-    setSelectedFood(item);
-    setModalVisible(true);
+	const handleSelect = async (item: SearchResult) => {
+		setSelectedFood(item);
+		setModalVisible(true);
 
     const res = await fetch(`${BASE_URL}/api/food-by-id/${item.id}`);
     const data = await res.json();
@@ -102,13 +102,9 @@ export default function SearchScreen() {
   "sugar_free"
   ];
 
-  return (
-    <View style={styles.container}>
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        style={styles.input}
-      />
+	return (
+		<View style={styles.container}>
+			<TextInput value={query} onChangeText={setQuery} style={styles.input} />
 
       <Pressable style={styles.searchButton} onPress={handleSearch}>
         <Text style={{ color: '#fff' }}>Search</Text>
@@ -210,13 +206,13 @@ export default function SearchScreen() {
                 ID: {details?.id}
                 </Text>
 
-                <Text>Calories: {details?.calories || 'N/A'}</Text>
-                <Text>Sugar: {details?.sugar || 'N/A'}</Text>
-                <Text>Fat: {details?.fat || 'N/A'}</Text>
-                <Text>Carbs: {details?.carbs || 'N/A'}</Text>
-                <Text>Protein: {details?.protein || 'N/A'}</Text>
-            </>
-            )}
+							<Text>Calories: {details?.calories || "N/A"}</Text>
+							<Text>Sugar: {details?.sugar || "N/A"}</Text>
+							<Text>Fat: {details?.fat || "N/A"}</Text>
+							<Text>Carbs: {details?.carbs || "N/A"}</Text>
+							<Text>Protein: {details?.protein || "N/A"}</Text>
+						</>
+					)}
 
             <Pressable
             style={{
