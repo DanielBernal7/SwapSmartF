@@ -50,13 +50,14 @@ export const Palette = {
 
 	label: "#1C1C1E",
 	secondaryLabel: "#8E8E93",
-	tertiaryLabel: "#3C3C43",
-	quaternaryLabel: "#6C6C70",
+	darkGray: "#3C3C43",
+	mediumGray: "#6C6C70",
 };
 
 export const Glass = {
 	borderWidth: 0.6,
 	borderColor: "rgba(255,255,255,0.75)",
+	overlayColor: "rgba(255,255,255,0.28)",
 	sheenColor: "rgba(255,255,255,0.28)",
 };
 

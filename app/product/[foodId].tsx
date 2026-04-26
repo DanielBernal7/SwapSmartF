@@ -224,19 +224,80 @@ function ComparisonTable({ scanned, detail, serving }: { scanned: ScannedProduct
 	const altAddedSugars = serving?.added_sugars ?? detail.added_sugars;
 
 	const rows: NutrientRow[] = [
-		{ label: "Calories", scannedValue: fmt(scanned.calories), altValue: fmt(altCal) },
-		{ label: "Total Fat", scannedValue: fmt(scanned.total_fat, "g"), altValue: fmt(altFat, "g") },
-		{ label: "Saturated Fat", scannedValue: fmt(scanned.saturated_fat, "g"), altValue: fmt(altSatFat, "g"), isSubRow: true },
-		{ label: "Trans Fat", scannedValue: fmt(scanned.trans_fat, "g"), altValue: fmt(altTransFat, "g"), isSubRow: true },
-		{ label: "Polyunsaturated Fat", scannedValue: fmt(scanned.polyunsaturated_fat, "g"), altValue: fmt(altPolyFat, "g"), isSubRow: true },
-		{ label: "Monounsaturated Fat", scannedValue: fmt(scanned.monounsaturated_fat, "g"), altValue: fmt(altMonoFat, "g"), isSubRow: true },
-		{ label: "Cholesterol", scannedValue: fmt(scanned.cholesterol, "mg"), altValue: fmt(altCholesterol, "mg") },
-		{ label: "Sodium", scannedValue: fmt(scanned.sodium, "mg"), altValue: fmt(altSodium, "mg") },
-		{ label: "Total Carbs", scannedValue: fmt(scanned.total_carbs, "g"), altValue: fmt(altCarbs, "g") },
-		{ label: "Dietary Fiber", scannedValue: fmt(scanned.dietary_fiber, "g"), altValue: fmt(altFiber, "g"), isSubRow: true },
-		{ label: "Total Sugars", scannedValue: fmt(scanned.total_sugars, "g"), altValue: fmt(altSugar, "g"), isSugar: true, isSubRow: true },
-		{ label: "Added Sugars", scannedValue: fmt(scanned.added_sugars, "g"), altValue: fmt(altAddedSugars, "g"), isSugar: true, isSubRow: true },
-		{ label: "Protein", scannedValue: fmt(scanned.protein, "g"), altValue: fmt(altProtein, "g") },
+		{
+			label: "Calories",
+			scannedValue: fmt(scanned.calories),
+			altValue: fmt(altCal),
+		},
+		{
+			label: "Total Fat",
+			scannedValue: fmt(scanned.total_fat, "g"),
+			altValue: fmt(altFat, "g"),
+		},
+		{
+			label: "Saturated Fat",
+			scannedValue: fmt(scanned.saturated_fat, "g"),
+			altValue: fmt(altSatFat, "g"),
+			isSubRow: true,
+		},
+		{
+			label: "Trans Fat",
+			scannedValue: fmt(scanned.trans_fat, "g"),
+			altValue: fmt(altTransFat, "g"),
+			isSubRow: true,
+		},
+		{
+			label: "Polyunsaturated Fat",
+			scannedValue: fmt(scanned.polyunsaturated_fat, "g"),
+			altValue: fmt(altPolyFat, "g"),
+			isSubRow: true,
+		},
+		{
+			label: "Monounsaturated Fat",
+			scannedValue: fmt(scanned.monounsaturated_fat, "g"),
+			altValue: fmt(altMonoFat, "g"),
+			isSubRow: true,
+		},
+		{
+			label: "Cholesterol",
+			scannedValue: fmt(scanned.cholesterol, "mg"),
+			altValue: fmt(altCholesterol, "mg"),
+		},
+		{
+			label: "Sodium",
+			scannedValue: fmt(scanned.sodium, "mg"),
+			altValue: fmt(altSodium, "mg"),
+		},
+		{
+			label: "Total Carbs",
+			scannedValue: fmt(scanned.total_carbs, "g"),
+			altValue: fmt(altCarbs, "g"),
+		},
+		{
+			label: "Dietary Fiber",
+			scannedValue: fmt(scanned.dietary_fiber, "g"),
+			altValue: fmt(altFiber, "g"),
+			isSubRow: true,
+		},
+		{
+			label: "Total Sugars",
+			scannedValue: fmt(scanned.total_sugars, "g"),
+			altValue: fmt(altSugar, "g"),
+			isSugar: true,
+			isSubRow: true,
+		},
+		{
+			label: "Added Sugars",
+			scannedValue: fmt(scanned.added_sugars, "g"),
+			altValue: fmt(altAddedSugars, "g"),
+			isSugar: true,
+			isSubRow: true,
+		},
+		{
+			label: "Protein",
+			scannedValue: fmt(scanned.protein, "g"),
+			altValue: fmt(altProtein, "g"),
+		},
 	];
 
 	return (
@@ -341,6 +402,86 @@ function HighlightedIngredients({ text }: { text: string }) {
 	);
 }
 
+type NutritionRowDef = {
+	label: string;
+	value: number | null | undefined;
+	unit: string;
+	accent?: boolean;
+	sub?: boolean;
+};
+
+function NutritionCard({ detail, serving }: { detail: FoodDetail; serving: Serving | null }) {
+	const rows: NutritionRowDef[] = [
+		{
+			label: "Calories",
+			value: serving?.calories ?? detail.calories,
+			unit: "",
+		},
+		{
+			label: "Total Fat",
+			value: serving?.total_fat ?? detail.total_fat,
+			unit: "g",
+		},
+		{
+			label: "Saturated Fat",
+			value: serving?.saturated_fat ?? detail.saturated_fat,
+			unit: "g",
+			sub: true,
+		},
+		{
+			label: "Total Carbs",
+			value: serving?.total_carbs ?? detail.total_carbs,
+			unit: "g",
+		},
+		{
+			label: "Dietary Fiber",
+			value: serving?.dietary_fiber ?? detail.dietary_fiber,
+			unit: "g",
+			sub: true,
+		},
+		{
+			label: "Total Sugars",
+			value: serving?.total_sugars ?? detail.total_sugars,
+			unit: "g",
+			sub: true,
+			accent: true,
+		},
+		{
+			label: "Added Sugars",
+			value: serving?.added_sugars ?? detail.added_sugars,
+			unit: "g",
+			sub: true,
+		},
+		{ label: "Protein", value: serving?.protein ?? detail.protein, unit: "g" },
+		{ label: "Sodium", value: serving?.sodium ?? detail.sodium, unit: "mg" },
+	];
+
+	let servingLabel = "Nutrition";
+	if (detail.serving_size) {
+		servingLabel = `Nutrition  ·  per ${detail.serving_size}`;
+	}
+
+	return (
+		<GlassCard style={styles.card}>
+			<View style={styles.cardInner}>
+				<Text style={sectionStyles.sectionTitle}>{servingLabel}</Text>
+				{rows.map((row, i) => {
+					let rowValue = "—";
+					if (row.value != null) {
+						rowValue = `${row.value}${row.unit}`;
+					}
+					return (
+						<View key={row.label} style={[statStyles.row, i < rows.length - 1 && statStyles.rowDivider]}>
+							<Text style={[statStyles.rowLabel, row.sub && statStyles.rowLabelSub, row.accent && statStyles.rowLabelAccent]}>{row.label}</Text>
+							<Text style={[statStyles.rowValue, row.accent && statStyles.rowValueAccent]}>{rowValue}</Text>
+						</View>
+					);
+				})}
+			</View>
+		</GlassCard>
+	);
+}
+
 function AvailabilityRow({ name }: { name: string }) {
 	const encoded = encodeURIComponent(name);
 	const stores = [
@@ -373,7 +514,10 @@ function AvailabilityRow({ name }: { name: string }) {
 }
 
 export default function ProductDetailScreen() {
-	const { foodId, scannedJson } = useLocalSearchParams<{ foodId: string; scannedJson: string }>();
+	const { foodId, scannedJson } = useLocalSearchParams<{
+		foodId: string;
+		scannedJson: string;
+	}>();
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 
@@ -469,6 +613,8 @@ export default function ProductDetailScreen() {
 							</View>
 						</GlassCard>
 					)}
+
+					{!scanned && <NutritionCard detail={detail} serving={currentServing} />}
 
 					{(() => {
 						if (!scanned || scanned.total_sugars == null) return null;
@@ -769,6 +915,43 @@ const availabilityStyles = StyleSheet.create({
 		fontWeight: "600",
 		color: "#007AFF",
 		letterSpacing: -0.2,
+	},
+});
+
+const statStyles = StyleSheet.create({
+	row: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "baseline",
+		paddingVertical: 9,
+	},
+	rowDivider: {
+		borderBottomWidth: StyleSheet.hairlineWidth,
+		borderBottomColor: "rgba(60,60,67,0.1)",
+	},
+	rowLabel: {
+		fontSize: 15,
+		color: "#1C1C1E",
+		letterSpacing: -0.2,
+	},
+	rowLabelSub: {
+		paddingLeft: 16,
+		fontSize: 14,
+		color: "#6C6C70",
+	},
+	rowLabelAccent: {
+		color: "#E8704A",
+		fontWeight: "600",
+	},
+	rowValue: {
+		fontSize: 15,
+		fontWeight: "500",
+		color: "#1C1C1E",
+		letterSpacing: -0.2,
+	},
+	rowValueAccent: {
+		color: "#E8704A",
+		fontWeight: "700",
 	},
 });
 
