@@ -61,7 +61,7 @@ export default function SettingsScreen() {
 				<Text style={styles.pageTitle}>Settings</Text>
 
 				<Section title="APP">
-					<SettingsRow icon="info.circle.fill" iconAccent="#007AFF" label="About SwapSmart" onPress={() => Alert.alert("SwapSmart", "Find healthier alternatives to the foods you love — instantly.\n\nBuilt for demo purposes.")} />
+					<SettingsRow icon="info.circle.fill" iconAccent="#007AFF" label="About SwapSmart" onPress={() => Alert.alert("SwapSmart", "Find healthier alternatives to the foods you enjoy.\n\nBuilt as a placeholder for now.")} />
 					<SettingsRow icon="star.fill" iconAccent="#FF9500" label="Version" value={APP_VERSION} isLast />
 				</Section>
 
