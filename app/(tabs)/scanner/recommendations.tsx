@@ -1,3 +1,4 @@
+import { saveSwap } from "@/utils/swapStorage";
 import { GlassCard } from "@/components/GlassCard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -219,6 +220,22 @@ export default function RecommendationsScreen() {
 			.then((json: RecommendationResponse) => {
 				json.recommendations.sort((a, b) => (a.total_sugars ?? 0) - (b.total_sugars ?? 0));
 				setData(json);
+				if (json.recommendations.length > 0) {
+					const best = json.recommendations[0];
+					saveSwap({
+						original: {
+							name: json.scanned.name,
+							brand: json.scanned.brand,
+							sugar: json.scanned.total_sugars,
+						},
+						swap: {
+							foodId: best.food_id,
+							name: best.name,
+							brand: best.brand,
+							sugar: best.total_sugars,
+						},
+					});
+				}
 			})
 			.catch((err) => {
 				if (typeof err === "string") {

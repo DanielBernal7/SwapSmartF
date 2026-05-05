@@ -15,14 +15,14 @@ export default function TabLayout() {
 				<Icon sf="magnifyingglass" />
 			</NativeTabs.Trigger>
 
-			<NativeTabs.Trigger name="explore">
-				<Label>Explore</Label>
-				<Icon sf="paperplane.fill" />
-			</NativeTabs.Trigger>
-
 			<NativeTabs.Trigger name="scanner">
 				<Label>Scan</Label>
 				<Icon sf="barcode.viewfinder" />
+			</NativeTabs.Trigger>
+
+			<NativeTabs.Trigger name="explore">
+				<Label>Settings</Label>
+				<Icon sf="gearshape.fill" />
 			</NativeTabs.Trigger>
 		</NativeTabs>
 	);
