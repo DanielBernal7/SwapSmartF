@@ -11,7 +11,7 @@ export default function TabLayout() {
 			</NativeTabs.Trigger>
 
 			<NativeTabs.Trigger name="search">
-				<Label>Search</Label>
+				<Label>Filters</Label>
 				<Icon sf="magnifyingglass" />
 			</NativeTabs.Trigger>
 

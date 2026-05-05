@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   FlatList,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { GlassCard } from "@/components/GlassCard";
+import { useRouter } from "expo-router";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -21,43 +21,11 @@ type SearchResult = {
   brand: string | null;
 };
 
-type FoodDetail = {
-  id: string;
-  name: string;
-  brand: string | null;
-  serving_size?: string;
-
-  calories?: number;
-  total_fat?: number;
-  saturated_fat?: number;
-  polyunsaturated_fat?: number;
-  monounsaturated_fat?: number;
-  cholesterol?: number;
-  sodium?: number;
-  total_carbs?: number;
-  dietary_fiber?: number;
-  total_sugars?: number;
-  added_sugars?: number;
-  protein?: number;
-};
-
-function Stat({ label, value }: { label: string; value?: number }) {
-  return (
-    <View style={styles.statPill}>
-      <Text style={styles.statValue}>
-        {value ?? "—"}
-      </Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
+  const router = useRouter();
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [selectedFood, setSelectedFood] = useState<SearchResult | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [details, setDetails] = useState<FoodDetail | null>(null);
+  
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -88,17 +56,15 @@ export default function SearchScreen() {
     if (!searchQuery) return;
 
     const res = await fetch(`${BASE_URL}/api/search?query=${searchQuery}`);
-    const data = await res.json();
-    setResults(data);
-  };
+      const data = await res.json();
+      setResults(data);
+    };
 
-  const handleSelect = async (item: SearchResult) => {
-    setSelectedFood(item);
-    setModalVisible(true);
-
-    const res = await fetch(`${BASE_URL}/api/food-by-id/${item.id}`);
-    const data = await res.json();
-    setDetails(data);
+    const handleSelect = (item: SearchResult) => {
+      router.push({
+      pathname: "/simple/[foodId]",
+      params: { foodId: item.id },
+    });
   };
 
   const categories = ["dairy","fruit","meat","snacks","beverages","vegetables","grains","sweets","seafood"];
@@ -112,6 +78,7 @@ export default function SearchScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.pageTitle}>Advanced Filtering</Text>
 
         {/* SEARCH CARD */}
         <GlassCard style={styles.card}>
@@ -243,59 +210,6 @@ export default function SearchScreen() {
       
 
       {/* MODAL */}
-      <Modal visible={modalVisible} animationType="slide">
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={["#EEF3FA", "#F0F4F8", "#F2F2F7"]}
-            style={StyleSheet.absoluteFill}
-          />
-
-          <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 100 }}>
-
-            <GlassCard style={styles.card}>
-              <View style={styles.cardInner}>
-                <View style={styles.modalImageContainer}>
-                  <Image
-                    source={require('../../img/image_placeholder.png')}
-                    style={styles.modalImage}
-                    resizeMode="contain"
-                  />
-                </View>
-                <Text style={styles.modalTitle}>{details?.name}</Text>
-                {details?.brand && (
-                  <Text style={styles.modalBrand}>{details.brand}</Text>
-                )}
-
-                <Text style={styles.sectionSub}>
-                  Serving: {details?.serving_size || "—"}
-                </Text>
-
-                <View style={styles.statsGrid}>
-
-                  <Stat label="Calories" value={details?.calories} />
-                  <Stat label="Sugar" value={details?.total_sugars} />
-                  <Stat label="Fat" value={details?.total_fat} />
-                  <Stat label="Protein" value={details?.protein} />
-
-                  <Stat label="Carbs" value={details?.total_carbs} />
-                  <Stat label="Fiber" value={details?.dietary_fiber} />
-                  <Stat label="Sodium" value={details?.sodium} />
-                  <Stat label="Cholesterol" value={details?.cholesterol} />
-
-                </View>
-              </View>
-            </GlassCard>
-
-            <Pressable style={styles.closeButton} onPress={() => {
-              setModalVisible(false);
-              setDetails(null);
-            }}>
-              <Text style={{ color: "#fff" }}>Close</Text>
-            </Pressable>
-
-          </ScrollView>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -425,70 +339,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "#EEF3FA",
-  },
-
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#000",
-    marginBottom: 4,
-    letterSpacing: -0.4,
-  },
-
-  modalBrand: {
-    fontSize: 14,
-    color: "#8E8E93",
-    marginBottom: 10,
-  },
-
-  modalMeta: {
-    fontSize: 13,
-    color: "#8E8E93",
-    marginBottom: 10,
-  },
-
-  sectionSub: {
-    fontSize: 13,
-    color: "#8E8E93",
-    marginBottom: 12,
-  },
-
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-
-  statPill: {
-    width: "47%",
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(120,120,128,0.06)",
-    alignItems: "center",
-  },
-
-  statValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1C1C1E",
-  },
-
-  statLabel: {
-    fontSize: 11,
-    color: "#8E8E93",
-    marginTop: 2,
-  },
-
-  closeButton: {
-    marginTop: 20,
-    backgroundColor: "#007AFF",
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "center",
-  },
   filterText: {
   color: "#3C3C43",
   fontSize: 13,
@@ -514,15 +364,7 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontWeight: "500",
   },
-  modalImageContainer: {
-    alignItems: "center",
-    marginBottom: 12,
-  },
 
-  modalImage: {
-    width: 100,
-    height: 100,
-  },
 
   resultsBox: {
   marginTop: 6,
@@ -530,5 +372,13 @@ const styles = StyleSheet.create({
   backgroundColor: "rgba(60,60,67,0.08)", // subtle darker box
   paddingHorizontal: 10,
   paddingVertical: 6,
+  },
+
+  pageTitle: {
+  fontSize: 22,
+  fontWeight: "700",
+  color: "#000",
+  marginBottom: 12,
+  letterSpacing: -0.4,
   },
 });
