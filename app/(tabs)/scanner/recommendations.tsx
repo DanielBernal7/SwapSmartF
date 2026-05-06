@@ -1,10 +1,13 @@
 import { saveSwap } from "@/utils/swapStorage";
 import { GlassCard } from "@/components/GlassCard";
+import { useDevMode } from "@/contexts/DevMode";
+import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -93,7 +96,7 @@ function ProductImage({ imageUrl, size }: { imageUrl: string | null; size: "larg
 	}
 
 	if (imageUrl) {
-		return <Image source={{ uri: imageUrl }} style={imageStyle} />;
+		return <Image source={{ uri: imageUrl }} style={imageStyle} resizeMode="contain" />;
 	}
 
 	return (
@@ -103,7 +106,7 @@ function ProductImage({ imageUrl, size }: { imageUrl: string | null; size: "larg
 	);
 }
 
-function ScannedCard({ product }: { product: Product }) {
+function ScannedCard({ product, imageUrl, onImageTap, uploading }: { product: Product; imageUrl: string | null; onImageTap?: () => void; uploading?: boolean }) {
 	const slideStyle = useSlideIn(0);
 
 	return (
@@ -117,7 +120,24 @@ function ScannedCard({ product }: { product: Product }) {
 				</View>
 
 				<View style={s.scannedBody}>
-					<ProductImage imageUrl={product.image_url} size="large" />
+					<Pressable style={s.scannedImageWrap} onPress={onImageTap}>
+						{imageUrl ? (
+							<Image key={imageUrl} source={{ uri: imageUrl }} style={s.scannedImage} resizeMode="contain" />
+						) : (
+							<View style={[s.scannedImage, s.imagePlaceholder]}>
+								<Image source={require("../../../img/image_placeholder.png")} style={s.scannedPlaceholderImg} resizeMode="contain" />
+							</View>
+						)}
+						{onImageTap && (
+							<View style={s.imageEditBtn}>
+								{uploading ? (
+									<ActivityIndicator size="small" color="#fff" />
+								) : (
+									<SymbolView name="pencil" tintColor="#fff" resizeMode="scaleAspectFit" style={s.imageEditIcon} />
+								)}
+							</View>
+						)}
+					</Pressable>
 					<View style={s.scannedInfo}>
 						<Text style={s.scannedName} numberOfLines={2}>
 							{product.name}
@@ -197,9 +217,68 @@ export default function RecommendationsScreen() {
 	const { gtin } = useLocalSearchParams<{ gtin: string }>();
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
+	const { devMode } = useDevMode();
 	const [data, setData] = useState<RecommendationResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [scannedImageUrl, setScannedImageUrl] = useState<string | null>(null);
+	const [uploadingScanned, setUploadingScanned] = useState(false);
+
+	const uploadScannedImage = async (imageData: string) => {
+		const foodId = data?.scanned?.food_id;
+		if (!foodId) return;
+		setUploadingScanned(true);
+		try {
+			const res = await fetch(`${BASE_URL}/api/product/${foodId}/image`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ image_data: imageData }),
+			});
+			if (!res.ok) throw new Error("Upload failed");
+			setScannedImageUrl(imageData);
+		} catch {
+			Alert.alert("Upload failed", "Could not save the image. Try again.");
+		} finally {
+			setUploadingScanned(false);
+		}
+	};
+
+	const handleScannedImageTap = () => {
+		if (Platform.OS !== "ios") return;
+		ActionSheetIOS.showActionSheetWithOptions(
+			{ options: ["Cancel", "Paste from Clipboard", "Paste Image URL", "Choose from Library"], cancelButtonIndex: 0 },
+			async (index) => {
+				if (index === 1) {
+					const hasImage = await Clipboard.hasImageAsync();
+					if (!hasImage) { Alert.alert("Nothing to paste", "Copy an image first."); return; }
+					const result = await Clipboard.getImageAsync({ format: "png" });
+					if (result?.data) uploadScannedImage(`data:image/png;base64,${result.data}`);
+				} else if (index === 2) {
+					Alert.prompt("Set Image", "Paste a direct image URL", async (url) => {
+						const trimmed = url?.trim();
+						if (!trimmed) return;
+						try {
+							const res = await fetch(trimmed);
+							const blob = await res.blob();
+							const reader = new FileReader();
+							reader.onload = (ev) => {
+								const data = ev.target?.result as string;
+								if (data) uploadScannedImage(data);
+							};
+							reader.readAsDataURL(blob);
+						} catch {
+							Alert.alert("Fetch failed", "Could not load image from that URL.");
+						}
+					}, "plain-text", "", "url");
+				} else if (index === 3) {
+					const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 0.5, base64: true });
+					if (!result.canceled && result.assets[0].base64) {
+						uploadScannedImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+					}
+				}
+			}
+		);
+	};
 
 	const headerBarHeight = insets.top + NAV_BAR_HEIGHT;
 	const headerTotalHeight = headerBarHeight + 46;
@@ -220,6 +299,7 @@ export default function RecommendationsScreen() {
 			.then((json: RecommendationResponse) => {
 				json.recommendations.sort((a, b) => (a.total_sugars ?? 0) - (b.total_sugars ?? 0));
 				setData(json);
+				setScannedImageUrl(json.scanned.image_url ?? null);
 				if (json.recommendations.length > 0) {
 					const best = json.recommendations[0];
 					saveSwap({
@@ -304,7 +384,12 @@ export default function RecommendationsScreen() {
 				{!loading && !error && data && (
 					<View style={StyleSheet.absoluteFill}>
 						<ScrollView contentContainerStyle={[s.scrollContent, { paddingTop: headerBarHeight + 24 }]} showsVerticalScrollIndicator={false} alwaysBounceVertical scrollEventThrottle={16} decelerationRate="normal">
-							<ScannedCard product={data.scanned} />
+							<ScannedCard
+							product={data.scanned}
+							imageUrl={scannedImageUrl}
+							onImageTap={devMode && data.scanned.food_id ? handleScannedImageTap : undefined}
+							uploading={uploadingScanned}
+						/>
 
 							{data.recommendations.length > 0 && (
 								<View style={s.sectionHeader}>
@@ -448,6 +533,25 @@ const s = StyleSheet.create({
 		color: "#8E8E93",
 		letterSpacing: 0.6,
 	},
+	scannedImageWrap: {
+		position: "relative",
+		flexShrink: 0,
+	},
+	imageEditBtn: {
+		position: "absolute",
+		bottom: 3,
+		right: 3,
+		width: 22,
+		height: 22,
+		borderRadius: 11,
+		backgroundColor: "rgba(0,0,0,0.55)",
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	imageEditIcon: {
+		width: 10,
+		height: 10,
+	},
 	scannedBody: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -459,7 +563,7 @@ const s = StyleSheet.create({
 		width: 68,
 		height: 68,
 		borderRadius: 16,
-		backgroundColor: "#E5E5EA",
+		backgroundColor: "#fff",
 	},
 	scannedPlaceholderImg: {
 		width: 44,
@@ -574,7 +678,7 @@ const s = StyleSheet.create({
 		width: 52,
 		height: 52,
 		borderRadius: 14,
-		backgroundColor: "#E5E5EA",
+		backgroundColor: "#fff",
 	},
 	altPlaceholderImg: {
 		width: 36,
@@ -628,7 +732,7 @@ const s = StyleSheet.create({
 	imagePlaceholder: {
 		alignItems: "center",
 		justifyContent: "center",
-		backgroundColor: "rgba(120,120,128,0.08)",
+		backgroundColor: "#fff",
 	},
 
 	emptyCard: {

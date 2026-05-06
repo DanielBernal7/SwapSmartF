@@ -7,7 +7,7 @@ import { SymbolView, type SFSymbol } from "expo-symbols";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Background, Glass, Skeleton } from "@/constants/theme";
-import { loadSwaps, type RecentSwap } from "@/utils/swapStorage";
+import { clearSwaps, loadSwaps, type RecentSwap } from "@/utils/swapStorage";
 import MaskedView from "@react-native-masked-view/masked-view";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -532,7 +532,18 @@ export default function HomeScreen() {
 					</Text>
 				</View>
 
-				<Text style={styles.sectionLabel}>{sectionTitle}</Text>
+				<View style={styles.sectionHeader}>
+					<Text style={styles.sectionLabel}>{sectionTitle}</Text>
+					{hasSwaps && (
+						<Pressable
+							onPress={() => {
+								clearSwaps().then(() => setRecentSwaps([]));
+							}}
+						>
+							<Text style={styles.clearLabel}>Clear</Text>
+						</Pressable>
+					)}
+				</View>
 				<View style={styles.sectionLine} />
 
 				{displaySwaps.map((item, i) => (
@@ -791,12 +802,23 @@ const styles = StyleSheet.create({
 		letterSpacing: -0.1,
 	},
 
+	sectionHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginBottom: 10,
+	},
 	sectionLabel: {
 		fontSize: 11,
 		fontWeight: "600",
 		color: "#8E8E93",
 		letterSpacing: 1.1,
-		marginBottom: 10,
+	},
+	clearLabel: {
+		fontSize: 13,
+		fontWeight: "500",
+		color: "#FF3B30",
+		letterSpacing: -0.1,
 	},
 	sectionLine: {
 		height: StyleSheet.hairlineWidth,

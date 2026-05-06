@@ -46,6 +46,12 @@ export async function saveSwap(entry: Omit<RecentSwap, "id" | "savedAt" | "scanT
 	} catch {}
 }
 
+export async function clearSwaps(): Promise<void> {
+	try {
+		await AsyncStorage.removeItem(KEY);
+	} catch {}
+}
+
 export async function loadSwaps(): Promise<RecentSwap[]> {
 	try {
 		const raw = await AsyncStorage.getItem(KEY);

@@ -4,7 +4,9 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { SymbolView } from "expo-symbols";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Background, Glass } from "@/constants/theme";
+import { useDevMode } from "@/contexts/DevMode";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "Not configured";
 const APP_VERSION = "1.0.0 (1)";
@@ -45,7 +47,8 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
 
 export default function SettingsScreen() {
 	const insets = useSafeAreaInsets();
-	const [devMode, setDevMode] = useState(false);
+	const router = useRouter();
+	const { devMode, setDevMode } = useDevMode();
 	const [mockData, setMockData] = useState(false);
 
 	let connectionStatus = "Not set";

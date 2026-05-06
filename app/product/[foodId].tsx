@@ -1,11 +1,16 @@
+import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
+import * as ExpoLinking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActionSheetIOS, ActivityIndicator, Alert, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassCard } from "@/components/GlassCard";
+import { useDevMode } from "@/contexts/DevMode";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -114,6 +119,8 @@ type FoodDetail = {
 };
 
 type ScannedProduct = {
+	food_id: string | null;
+	image_url: string | null;
 	name: string;
 	brand: string | null;
 	calories: number | null;
@@ -521,15 +528,20 @@ export default function ProductDetailScreen() {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 
+	const { devMode } = useDevMode();
 	const [detail, setDetail] = useState<FoodDetail | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [selectedServingIndex, setSelectedServingIndex] = useState(0);
+	const [uploading, setUploading] = useState<string | null>(null);
+	const [isDragOver, setIsDragOver] = useState(false);
+	const imageWrapRef = useRef<React.ElementRef<typeof Pressable>>(null);
 
 	let scanned: ScannedProduct | null = null;
 	if (scannedJson) {
 		scanned = JSON.parse(scannedJson);
 	}
+	const [scannedImageUrl, setScannedImageUrl] = useState<string | null>(scanned?.image_url ?? null);
 	const headerBarHeight = insets.top + NAV_BAR_HEIGHT;
 
 	let headerTitle = "Product Detail";
@@ -561,6 +573,157 @@ export default function ProductDetailScreen() {
 	if (detail && detail.all_servings) {
 		currentServing = detail.all_servings[selectedServingIndex];
 	}
+
+	const uploadImageData = async (targetFoodId: string, imageData: string, onSuccess: (url: string) => void) => {
+		setUploading(targetFoodId);
+		try {
+			const res = await fetch(`${BASE_URL}/api/product/${targetFoodId}/image`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ image_data: imageData }),
+			});
+			if (!res.ok) throw new Error("Upload failed");
+			onSuccess(imageData);
+		} catch {
+			Alert.alert("Upload failed", "Could not save the image. Try again.");
+		} finally {
+			setUploading(null);
+		}
+	};
+
+	const pickAndUploadImage = async (targetFoodId: string, onSuccess: (url: string) => void) => {
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: ["images"],
+			allowsEditing: true,
+			quality: 0.5,
+			base64: true,
+		});
+		if (result.canceled || !result.assets[0].base64) return;
+		uploadImageData(targetFoodId, `data:image/jpeg;base64,${result.assets[0].base64}`, onSuccess);
+	};
+
+	const pasteFromClipboard = async (targetFoodId: string, onSuccess: (url: string) => void) => {
+		const hasImage = await Clipboard.hasImageAsync();
+		if (!hasImage) {
+			Alert.alert("Nothing to paste", "Copy an image first, then try again.");
+			return;
+		}
+		const result = await Clipboard.getImageAsync({ format: "png" });
+		if (result?.data) {
+			uploadImageData(targetFoodId, `data:image/png;base64,${result.data}`, onSuccess);
+		}
+	};
+
+	const handleImageTap = (targetFoodId: string, onSuccess: (url: string) => void) => {
+		if (Platform.OS === "ios") {
+			ActionSheetIOS.showActionSheetWithOptions(
+				{ options: ["Cancel", "Paste from Clipboard", "Paste Image URL", "Choose from Library"], cancelButtonIndex: 0 },
+				(index) => {
+					if (index === 1) {
+						pasteFromClipboard(targetFoodId, onSuccess);
+					} else if (index === 2) {
+						Alert.prompt("Set Image", "Paste a direct image URL", async (url) => {
+							const trimmed = url?.trim();
+							if (!trimmed) return;
+							try {
+								const res = await fetch(trimmed);
+								const blob = await res.blob();
+								const reader = new FileReader();
+								reader.onload = (ev) => {
+									const data = ev.target?.result as string;
+									if (data) uploadImageData(targetFoodId, data, onSuccess);
+								};
+								reader.readAsDataURL(blob);
+							} catch {
+								Alert.alert("Fetch failed", "Could not load image from that URL.");
+							}
+						}, "plain-text", "", "url");
+					} else if (index === 3) {
+						pickAndUploadImage(targetFoodId, onSuccess);
+					}
+				}
+			);
+		} else {
+			pickAndUploadImage(targetFoodId, onSuccess);
+		}
+	};
+
+	const handleImagePress = () => {
+		if (!devMode || Platform.OS === "web" || !foodId) return;
+		handleImageTap(foodId, (url) => {
+			setDetail((prev) => {
+				if (prev === null) return prev;
+				return { ...prev, image_url: url };
+			});
+		});
+	};
+
+	useEffect(() => {
+		if (Platform.OS !== "ios" || !devMode || !foodId) return;
+		const handleUrl = async ({ url }: { url: string }) => {
+			if (!/\.(jpe?g|png|webp|gif|heic)$/i.test(url)) return;
+			try {
+				const base64 = await FileSystem.readAsStringAsync(url, { encoding: "base64" as any });
+				const ext = url.split(".").pop()?.toLowerCase() ?? "jpeg";
+				let mime = "image/jpeg";
+				if (ext === "png") {
+					mime = "image/png";
+				} else if (ext === "webp") {
+					mime = "image/webp";
+				}
+				uploadImageData(foodId, `data:${mime};base64,${base64}`, (imageUrl) => {
+					setDetail((prev) => {
+						if (prev === null) return prev;
+						return { ...prev, image_url: imageUrl };
+					});
+				});
+			} catch {
+				Alert.alert("Drop failed", "Could not read the dropped file.");
+			}
+		};
+		const sub = ExpoLinking.addEventListener("url", handleUrl);
+		ExpoLinking.getInitialURL().then((url) => { if (url) handleUrl({ url }); });
+		return () => sub.remove();
+	}, [devMode, foodId]);
+
+	useEffect(() => {
+		if (Platform.OS !== "web" || !devMode || !imageWrapRef.current) return;
+		const el = imageWrapRef.current as any;
+
+		const onDragOver = (e: DragEvent) => {
+			e.preventDefault();
+			setIsDragOver(true);
+		};
+		const onDragLeave = () => setIsDragOver(false);
+		const onDrop = (e: DragEvent) => {
+			e.preventDefault();
+			setIsDragOver(false);
+			const file = e.dataTransfer?.files[0];
+			if (!file || !file.type.startsWith("image/")) return;
+			const reader = new FileReader();
+			reader.onload = (ev) => {
+				const imageData = ev.target?.result as string;
+				if (imageData && foodId) {
+					uploadImageData(foodId, imageData, (url) => {
+						setDetail((prev) => {
+							if (prev === null) return prev;
+							return { ...prev, image_url: url };
+						});
+					});
+				}
+			};
+			reader.readAsDataURL(file);
+		};
+
+		el.addEventListener("dragover", onDragOver);
+		el.addEventListener("dragleave", onDragLeave);
+		el.addEventListener("drop", onDrop);
+		return () => {
+			el.removeEventListener("dragover", onDragOver);
+			el.removeEventListener("dragleave", onDragLeave);
+			el.removeEventListener("drop", onDrop);
+		};
+	}, [devMode, foodId]);
 
 	return (
 		<View style={styles.container}>
@@ -602,8 +765,34 @@ export default function ProductDetailScreen() {
 			{!loading && !error && detail && (
 				<ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: headerBarHeight + 20 }]} showsVerticalScrollIndicator={false}>
 					<View style={styles.productHeader}>
-						<Text style={styles.productName}>{detail.name}</Text>
-						{detail.brand && <Text style={styles.productBrand}>{detail.brand}</Text>}
+						<View style={styles.productImageRow}>
+							<Pressable
+								ref={imageWrapRef}
+								style={[styles.productImageWrap, isDragOver && styles.productImageWrapDragOver]}
+								onPress={handleImagePress}
+							>
+								{detail.image_url && (
+									<Image key={detail.image_url} source={{ uri: detail.image_url }} style={styles.productImage} resizeMode="contain" />
+								)}
+								{!detail.image_url && (
+									<Image source={require("../../img/image_placeholder.png")} style={styles.productImagePlaceholder} resizeMode="contain" />
+								)}
+								{devMode && (
+									<View style={styles.imageEditBtn}>
+										{uploading === foodId && (
+											<ActivityIndicator size="small" color="#fff" />
+										)}
+										{uploading !== foodId && (
+											<SymbolView name="pencil" tintColor="#fff" resizeMode="scaleAspectFit" style={styles.imageEditIcon} />
+										)}
+									</View>
+								)}
+							</Pressable>
+							<View style={styles.productTitleBlock}>
+								<Text style={styles.productName}>{detail.name}</Text>
+								{detail.brand && <Text style={styles.productBrand}>{detail.brand}</Text>}
+							</View>
+						</View>
 					</View>
 
 					{detail.all_servings?.length > 1 && (
@@ -713,6 +902,78 @@ const styles = StyleSheet.create({
 	productHeader: {
 		marginBottom: 16,
 		paddingHorizontal: 2,
+	},
+	productImageRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 14,
+	},
+	productImageWrap: {
+		width: 80,
+		height: 80,
+		borderRadius: 14,
+		backgroundColor: "#fff",
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: "rgba(60,60,67,0.12)",
+		overflow: "hidden",
+		flexShrink: 0,
+	},
+	productImageWrapDragOver: {
+		borderColor: "#007AFF",
+		borderWidth: 2,
+		backgroundColor: "#EAF3FF",
+	},
+	productImage: {
+		width: 80,
+		height: 80,
+	},
+	productImagePlaceholder: {
+		width: 80,
+		height: 80,
+		opacity: 0.35,
+	},
+	imageEditBtn: {
+		position: "absolute",
+		bottom: 4,
+		right: 4,
+		width: 26,
+		height: 26,
+		borderRadius: 13,
+		backgroundColor: "rgba(0,0,0,0.55)",
+		alignItems: "center",
+		justifyContent: "center",
+		overflow: "hidden",
+	},
+	imageEditIcon: {
+		width: 12,
+		height: 12,
+	},
+	productTitleBlock: {
+		flex: 1,
+	},
+	comparisonTag: {
+		fontSize: 10,
+		fontWeight: "700",
+		color: "#8E8E93",
+		letterSpacing: 0.8,
+		marginBottom: 3,
+	},
+	swapArrowRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		marginVertical: 8,
+		marginLeft: 4,
+	},
+	swapArrowIcon: {
+		width: 16,
+		height: 16,
+	},
+	swapArrowLabel: {
+		fontSize: 13,
+		fontWeight: "500",
+		color: "#8E8E93",
+		letterSpacing: -0.1,
 	},
 	productName: {
 		fontSize: 22,
