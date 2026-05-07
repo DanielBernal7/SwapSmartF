@@ -61,11 +61,8 @@ export default function SearchScreen() {
     };
 
     const handleSelect = (item: SearchResult) => {
-      router.push({
-      pathname: "/simple/[foodId]",
-      params: { foodId: item.id },
-    });
-  };
+    router.push(`/simple/${item.id}` as any);
+};
 
   const categories = ["dairy","fruit","meat","snacks","beverages","vegetables","grains","sweets","seafood"];
   const dietaryFilters = ["gluten_free","dairy_free","grain_free","sugar_free"];
@@ -369,7 +366,7 @@ const styles = StyleSheet.create({
   resultsBox: {
   marginTop: 6,
   borderRadius: 16,
-  backgroundColor: "rgba(60,60,67,0.08)", // subtle darker box
+  backgroundColor: "rgba(60,60,67,0.08)", 
   paddingHorizontal: 10,
   paddingVertical: 6,
   },
